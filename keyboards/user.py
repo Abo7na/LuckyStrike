@@ -1,81 +1,77 @@
 from telebot import types
 
 
-def home_keyboard(lang='ar'):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
-    items = [
-        '💰 المحفظة', '🎟️ اليانصيب',
-        '🎮 الألعاب', '🎡 العجلة',
-        '🎁 الهدايا', '👥 الإحالة',
-        '👤 حسابي', '🌐 اللغة',
-        '📞 الإدارة', '🤖 بوتاتي',
-    ]
-    if lang == 'en':
-        items = [
-            '💰 Wallet', '🎟️ Lottery',
-            '🎮 Games', '🎡 Wheel',
-            '🎁 Gifts', '👥 Referral',
-            '👤 Profile', '🌐 Language',
-            '📞 Support', '🤖 My Bots',
+def _button(text, callback):
+    return types.InlineKeyboardButton(text, callback_data=callback)
+
+
+def home_keyboard(lang="ar", is_admin=False):
+    m = types.InlineKeyboardMarkup(row_width=2)
+    if lang == "en":
+        rows = [
+            [_button("💰 Wallet", "nav_wallet"), _button("🎟️ Lottery", "nav_lottery")],
+            [_button("🎮 Games", "nav_games"), _button("🎡 Wheel", "nav_wheel")],
+            [_button("🎁 Gifts", "nav_gifts"), _button("👥 Referral", "nav_referral")],
+            [_button("👤 Profile", "nav_profile"), _button("🌐 Language", "nav_language")],
+            [_button("🤖 My Bots", "nav_my_bots"), _button("📞 Support", "nav_support")],
         ]
-    markup.add(*items)
-    return markup
-
-
-def wallet_keyboard(lang='ar'):
-    markup = types.InlineKeyboardMarkup()
-    if lang == 'ar':
-        markup.add(types.InlineKeyboardButton('💳 شحن الرصيد', callback_data='wallet_deposit'))
-        markup.add(types.InlineKeyboardButton('💸 سحب الرصيد', callback_data='wallet_withdraw'))
     else:
-        markup.add(types.InlineKeyboardButton('💳 Deposit', callback_data='wallet_deposit'))
-        markup.add(types.InlineKeyboardButton('💸 Withdraw', callback_data='wallet_withdraw'))
-    return markup
+        rows = [
+            [_button("💰 المحفظة", "nav_wallet"), _button("🎟️ اليانصيب", "nav_lottery")],
+            [_button("🎮 الألعاب", "nav_games"), _button("🎡 عجلة الحظ", "nav_wheel")],
+            [_button("🎁 الهدايا", "nav_gifts"), _button("👥 الإحالة", "nav_referral")],
+            [_button("👤 حسابي", "nav_profile"), _button("🌐 اللغة", "nav_language")],
+            [_button("🤖 بوتاتي", "nav_my_bots"), _button("📞 الإدارة", "nav_support")],
+        ]
+    if is_admin:
+        rows.append([_button("👑 لوحة الإدارة", "admin_panel")])
+    for row in rows:
+        m.row(*row)
+    return m
 
 
-def lottery_keyboard(lang='ar'):
-    markup = types.InlineKeyboardMarkup()
-    label = '🎫 Buy Ticket' if lang == 'en' else '🎫 شراء تذكرة'
-    markup.add(types.InlineKeyboardButton(label, callback_data='lottery_buy'))
-    return markup
+def section_keyboard(lang="ar", *buttons):
+    m = types.InlineKeyboardMarkup(row_width=2)
+    for row in buttons:
+        m.row(*row)
+    back = "⬅️ Back" if lang == "en" else "⬅️ رجوع"
+    home = "🏠 Home" if lang == "en" else "🏠 الرئيسية"
+    m.row(_button(back, "nav_back"), _button(home, "nav_home"))
+    return m
 
 
-def games_keyboard(lang='ar'):
-    markup = types.InlineKeyboardMarkup()
-    if lang == 'ar':
-        markup.row(
-            types.InlineKeyboardButton('🎲 النرد', callback_data='game_dice'),
-            types.InlineKeyboardButton('🪙 الوجه/الكتابة', callback_data='game_coin'),
-        )
-        markup.row(
-            types.InlineKeyboardButton('🎡 عجلة الحظ', callback_data='wheel_spin'),
-        )
-    else:
-        markup.row(
-            types.InlineKeyboardButton('🎲 Dice', callback_data='game_dice'),
-            types.InlineKeyboardButton('🪙 Coin', callback_data='game_coin'),
-        )
-        markup.row(
-            types.InlineKeyboardButton('🎡 Spin Wheel', callback_data='wheel_spin'),
-        )
-    return markup
+def wallet_keyboard(lang="ar"):
+    if lang == "en":
+        return section_keyboard(lang,
+            [_button("💳 Deposit", "wallet_deposit"), _button("💸 Withdraw", "wallet_withdraw")],
+            [_button("📒 Transactions", "wallet_transactions")])
+    return section_keyboard(lang,
+        [_button("💳 شحن الرصيد", "wallet_deposit"), _button("💸 سحب الرصيد", "wallet_withdraw")],
+        [_button("📒 سجل العمليات", "wallet_transactions")])
 
 
-def profile_keyboard(lang='ar'):
-    markup = types.InlineKeyboardMarkup()
-    label = '🌐 Language' if lang == 'en' else '🌐 اللغة'
-    markup.add(types.InlineKeyboardButton(label, callback_data='nav_language'))
-    return markup
+def games_keyboard(lang="ar"):
+    if lang == "en":
+        return section_keyboard(lang,
+            [_button("🎲 Dice", "game_dice"), _button("🪙 Coin", "game_coin")],
+            [_button("🎡 Wheel", "nav_wheel")])
+    return section_keyboard(lang,
+        [_button("🎲 النرد", "game_dice"), _button("🪙 وجه/كتابة", "game_coin")],
+        [_button("🎡 العجلة", "nav_wheel")])
 
 
-def admin_main_keyboard():
-    markup = types.InlineKeyboardMarkup()
-    markup.row(
-        types.InlineKeyboardButton('Users', callback_data='admin_users'),
-        types.InlineKeyboardButton('Wallet', callback_data='admin_wallet'),
-    )
-    markup.row(
-        types.InlineKeyboardButton('Lottery', callback_data='admin_lottery'),
-        types.InlineKeyboardButton('Stats', callback_data='admin_stats'),
-    )
-    return markup
+def lottery_keyboard(lang="ar"):
+    label = "🎫 Buy ticket" if lang == "en" else "🎫 شراء تذكرة"
+    info = "📊 Round info" if lang == "en" else "📊 معلومات الجولة"
+    return section_keyboard(lang, [_button(label, "lottery_buy"), _button(info, "lottery_info")])
+
+
+def language_keyboard():
+    return section_keyboard("ar", [_button("🇸🇾 العربية", "set_lang_ar"), _button("🇬🇧 English", "set_lang_en")])
+
+
+def admin_keyboard():
+    return section_keyboard("en",
+        [_button("📊 Stats", "admin_stats"), _button("👥 Users", "admin_users")],
+        [_button("💰 Wallet", "admin_wallet"), _button("🎟️ Lottery", "admin_lottery")],
+        [_button("⚙️ Settings", "admin_settings"), _button("🛡️ Security", "admin_security")])

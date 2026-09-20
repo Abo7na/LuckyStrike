@@ -1,22 +1,19 @@
+from database.db import ensure_user, get_user
 from keyboards.user import home_keyboard
-from database.db import ensure_user, get_user, set_user_language
 from utils.helpers import get_text
 
 
 def register_handlers(bot):
-    @bot.message_handler(commands=['start'])
+    @bot.message_handler(commands=["start"])
     def cmd_start(message):
-        user = ensure_user(message.from_user.id, message.from_user.username, message.from_user.first_name, message.from_user.last_name)
-        lang = user.get('language', 'ar')
-        text = get_text(lang, 'welcome')
-        bot.send_message(message.chat.id, text, reply_markup=home_keyboard(lang))
+        user = ensure_user(message.from_user.id, message.from_user.username,
+                           message.from_user.first_name, message.from_user.last_name)
+        lang = user.get("language", "ar")
+        bot.send_message(message.chat.id, get_text(lang, "welcome"),
+                         reply_markup=home_keyboard(lang, message.from_user.id in __import__("config").ADMIN_IDS))
 
-    @bot.message_handler(commands=['admin'])
+    @bot.message_handler(commands=["admin"])
     def cmd_admin(message):
-        user = get_user(message.from_user.id)
-        if not user:
+        if message.from_user.id not in __import__("config").ADMIN_IDS:
             return
-        if user['is_admin'] != 1:
-            bot.send_message(message.chat.id, get_text(user.get('language', 'ar'), 'not_allowed'))
-            return
-        bot.send_message(message.chat.id, "Admin panel", reply_markup=None)
+        bot.send_message(message.chat.id, "👑 <b>Admin Control Center</b>", reply_markup=__import__("keyboards.user", fromlist=["admin_keyboard"]).admin_keyboard())
