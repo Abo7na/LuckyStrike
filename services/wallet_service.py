@@ -1,75 +1,81 @@
-import random
-import sqlite3
-from database.db import get_connection, get_setting, update_user_balance, record_transaction, get_user
+import uuid
+from database.db import get_connection, get_setting
 
 
 def get_balance(user_id):
-    user = get_user(user_id)
-    return float(user["balance"]) if user else 0.0
+    conn = get_connection(); row = conn.execute("SELECT balance FROM users WHERE user_id=?", (user_id,)).fetchone(); conn.close()
+    return float(row["balance"]) if row else 0.0
+
+
+def _change_balance(conn, user_id, amount, tx_type, reference_id, description, admin_id=None):
+    row = conn.execute("SELECT balance,is_banned FROM users WHERE user_id=?", (user_id,)).fetchone()
+    if not row or row["is_banned"]: return {"ok": False, "message": "User unavailable"}
+    before = float(row["balance"]); after = before + float(amount)
+    if after < 0: return {"ok": False, "message": "Insufficient balance"}
+    conn.execute("UPDATE users SET balance=? WHERE user_id=?", (after, user_id))
+    conn.execute("INSERT INTO wallet_transactions(user_id,type,amount,balance_before,balance_after,reference_id,admin_id,description) VALUES(?,?,?,?,?,?,?,?)",
+                 (user_id, tx_type, abs(float(amount)), before, after, reference_id, admin_id, description))
+    return {"ok": True, "balance": after}
+
+
+def apply_balance_change(user_id, amount, tx_type, reference_id=None, description="", admin_id=None):
+    reference_id = reference_id or str(uuid.uuid4())
+    conn = get_connection(); conn.execute("BEGIN IMMEDIATE")
+    try:
+        if conn.execute("SELECT 1 FROM wallet_transactions WHERE reference_id=?", (reference_id,)).fetchone():
+            conn.execute("ROLLBACK"); return {"ok": True, "duplicate": True}
+        result = _change_balance(conn, user_id, amount, tx_type, reference_id, description, admin_id)
+        if not result["ok"]: conn.execute("ROLLBACK"); return result
+        conn.execute("COMMIT"); return result
+    except Exception:
+        conn.execute("ROLLBACK"); raise
+    finally: conn.close()
 
 
 def add_balance(user_id, amount, reference_id=None, description="ADMIN", admin_id=None):
-    conn = get_connection()
-    before = float(conn.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,)).fetchone()["balance"])
-    after = before + float(amount)
-    conn.execute("UPDATE users SET balance = ? WHERE user_id = ?", (after, user_id))
-    conn.commit()
-    conn.close()
-    record_transaction(user_id, "DEPOSIT", amount, before, after, reference_id, admin_id, description)
-    return after
+    result = apply_balance_change(user_id, abs(float(amount)), "DEPOSIT", reference_id, description, admin_id)
+    return result.get("balance") if result.get("ok") else None
 
 
 def deduct_balance(user_id, amount, reference_id=None, description="SYSTEM", admin_id=None):
-    conn = get_connection()
-    user = conn.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,)).fetchone()
-    if not user:
-        return False
-    before = float(user["balance"])
-    if before < float(amount):
-        return False
-    after = before - float(amount)
-    conn.execute("UPDATE users SET balance = ? WHERE user_id = ?", (after, user_id))
-    conn.commit()
-    conn.close()
-    record_transaction(user_id, "GAME", amount, before, after, reference_id, admin_id, description)
-    return True
+    return apply_balance_change(user_id, -abs(float(amount)), "GAME", reference_id, description, admin_id)["ok"]
+
+
+def create_deposit_request(user_id, amount, method, payment_reference):
+    request_id = "dep_" + uuid.uuid4().hex
+    conn = get_connection(); conn.execute("INSERT INTO wallet_requests(request_id,user_id,kind,amount,method,payment_reference) VALUES(?,?, 'DEPOSIT',?,?,?)", (request_id,user_id,amount,method,payment_reference)); conn.close()
+    return request_id
 
 
 def request_withdrawal(user_id, amount, method, account_details):
-    conn = get_connection()
-    user = conn.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,)).fetchone()
-    if not user:
-        return {"ok": False, "message": "User not found"}
-    balance = float(user["balance"])
-    min_withdraw = float(get_setting("min_withdraw", "50"))
-    if amount < min_withdraw:
-        return {"ok": False, "message": f"Minimum withdrawal is {min_withdraw}"}
-    if amount > balance:
-        return {"ok": False, "message": "Insufficient balance"}
-    if amount > float(get_setting("max_withdraw", "5000")):
-        return {"ok": False, "message": "Maximum withdrawal exceeded"}
-    conn.execute(
-        "UPDATE users SET balance = balance - ? WHERE user_id = ?",
-        (amount, user_id),
-    )
-    conn.execute(
-        "INSERT INTO wallet_transactions(user_id, type, amount, balance_before, balance_after, reference_id, description) VALUES (?, 'WITHDRAW_PENDING', ?, ?, ?, ?, ?)",
-        (user_id, amount, balance, balance - amount, f"wd_{user_id}_{int(random.random()*1000000)}", f"{method}:{account_details}"),
-    )
-    conn.commit()
-    conn.close()
-    return {"ok": True, "message": "Withdrawal request created successfully."}
+    amount = float(amount); request_id = "wd_" + uuid.uuid4().hex
+    conn = get_connection(); conn.execute("BEGIN IMMEDIATE")
+    try:
+        if amount < float(get_setting("min_withdraw", "50")) or amount > float(get_setting("max_withdraw", "5000")):
+            conn.execute("ROLLBACK"); return {"ok": False, "message": "Withdrawal amount is outside limits"}
+        result = _change_balance(conn, user_id, -amount, "WITHDRAW_HOLD", request_id, f"{method}:{account_details}")
+        if not result["ok"]: conn.execute("ROLLBACK"); return result
+        conn.execute("INSERT INTO wallet_requests(request_id,user_id,kind,amount,method,account_details) VALUES(?,?, 'WITHDRAW',?,?,?)", (request_id,user_id,amount,method,account_details))
+        conn.execute("COMMIT"); return {"ok": True, "request_id": request_id}
+    except Exception:
+        conn.execute("ROLLBACK"); raise
+    finally: conn.close()
 
 
-def approve_withdrawal(tx_ref, admin_id):
-    conn = get_connection()
-    row = conn.execute("SELECT * FROM wallet_transactions WHERE reference_id = ? AND type='WITHDRAW_PENDING'", (tx_ref,)).fetchone()
-    if not row:
-        conn.close()
-        return {"ok": False, "message": "Request not found"}
-    user_id = row["user_id"]
-    amount = float(row["amount"])
-    conn.execute("UPDATE wallet_transactions SET type = 'WITHDRAW', admin_id = ? WHERE reference_id = ?", (admin_id, tx_ref))
-    conn.commit()
-    conn.close()
-    return {"ok": True, "message": f"Withdrawal {amount} approved"}
+def decide_request(request_id, admin_id, approve, reason=""):
+    conn = get_connection(); conn.execute("BEGIN IMMEDIATE")
+    try:
+        row = conn.execute("SELECT * FROM wallet_requests WHERE request_id=? AND status='PENDING'", (request_id,)).fetchone()
+        if not row: conn.execute("ROLLBACK"); return {"ok": False, "message": "Request already processed or missing"}
+        status = "APPROVED" if approve else "REJECTED"
+        if not approve and row["kind"] == "WITHDRAW":
+            result = _change_balance(conn, row["user_id"], row["amount"], "REFUND", "refund_"+request_id, reason or "Withdrawal rejected", admin_id)
+            if not result["ok"]: conn.execute("ROLLBACK"); return result
+        if approve and row["kind"] == "DEPOSIT":
+            result = _change_balance(conn, row["user_id"], row["amount"], "DEPOSIT", request_id, reason or "Deposit approved", admin_id)
+            if not result["ok"]: conn.execute("ROLLBACK"); return result
+        conn.execute("UPDATE wallet_requests SET status=?,decided_at=CURRENT_TIMESTAMP,decided_by=? WHERE request_id=?", (status,admin_id,request_id))
+        conn.execute("COMMIT"); return {"ok": True, "status": status}
+    except Exception:
+        conn.execute("ROLLBACK"); raise
+    finally: conn.close()
