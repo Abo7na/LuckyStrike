@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
+import logging
 import telebot
+
 from config import BOT_TOKEN, ADMIN_IDS, APP_NAME
-from database.db import init_db, ensure_default_round, ensure_user, get_user, set_user_language, get_dashboard_stats
+from database.db import init_db, ensure_default_round, ensure_user, set_user_language, get_dashboard_stats
 from keyboards.user import home_keyboard, wallet_keyboard, games_keyboard, lottery_keyboard, language_keyboard, admin_keyboard, section_keyboard
 from services.game_service import play_dice, play_coin, spin_wheel
 from services.lottery_service import buy_ticket, get_active_round
@@ -15,6 +17,9 @@ init_db()
 ensure_default_round()
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger("luckystrike")
+
 
 def current_user(tg_user):
     return ensure_user(tg_user.id, tg_user.username, tg_user.first_name, tg_user.last_name)
@@ -23,7 +28,9 @@ def current_user(tg_user):
 def render(call, text, markup):
     try:
         bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup)
-    except Exception:
+    except Exception as exc:
+        # Telegram rejects edits when text/markup is unchanged; send a fallback message.
+        logger.debug("Could not edit message: %s", exc)
         bot.send_message(call.message.chat.id, text, reply_markup=markup)
 
 
@@ -105,10 +112,11 @@ def callback_router(call):
             stats = get_dashboard_stats()
             return render(call, "📊 <b>Dashboard</b>\n\n" + "\n".join(f"• {key}: <code>{value}</code>" for key, value in stats.items()), admin_keyboard())
     except Exception:
+        logger.exception("Callback failed: %s", data)
         bot.send_message(call.message.chat.id, "❌ حدث خطأ غير متوقع. تم تسجيل المشكلة، حاول مرة أخرى.")
 
 
-# Register only message-command modules. Callback routing is centralized above.
+# Message-command modules. Callback routing remains centralized above.
 from handlers.start import register_handlers as register_start
 from handlers.user import register_handlers as register_user
 from handlers.wallet import register_handlers as register_wallet
@@ -119,8 +127,19 @@ from handlers.gifts import register_handlers as register_gifts
 from handlers.referral import register_handlers as register_referral
 from handlers.language import register_handlers as register_language
 from handlers.support import register_handlers as register_support
-from handlers.admin.statistics import register_handlers as register_admin_statistics
-register_start(bot); register_user(bot); register_wallet(bot); register_lottery(bot); register_games(bot); register_wheel(bot); register_gifts(bot); register_referral(bot); register_language(bot); register_support(bot); register_admin_statistics(bot)
+from handlers.admin.operations import register_handlers as register_admin_operations
+
+register_start(bot)
+register_user(bot)
+register_wallet(bot)
+register_lottery(bot)
+register_games(bot)
+register_wheel(bot)
+register_gifts(bot)
+register_referral(bot)
+register_language(bot)
+register_support(bot)
+register_admin_operations(bot)
 
 if __name__ == "__main__":
     print(f"🎰 {APP_NAME}\n✅ Database\n✅ Configuration\n🚀 Bot started")
