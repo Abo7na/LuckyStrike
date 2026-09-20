@@ -1,0 +1,14 @@
+{
+  "welcome": "Welcome to Lucky Strike 🎰\n\nChoose an option from the menu below.",
+  "wallet": "💰 Wallet",
+  "lottery": "🎟️ Lottery",
+  "games": "🎮 Games",
+  "wheel": "🎡 Wheel of Fortune",
+  "gift_code": "🎁 Redeem your gift code here",
+  "referral": "👥 Referral",
+  "support": "📞 Contact admin\n\nYou can reach support via the admin contact details.",
+  "language": "🌐 Select language",
+  "profile": "👤 Profile",
+  "not_allowed": "❌ You are not allowed to perform this action.",
+  "lottery_no_active": "There is no active round right now."
+}
