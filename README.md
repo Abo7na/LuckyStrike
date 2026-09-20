@@ -1,67 +1,41 @@
 # Lucky Strike
 
-Lucky Strike is a modular Telegram bot project designed for Android/Termux compatibility and easy later migration to Linux/VPS/Windows.
+A modular Telegram entertainment bot for Termux/Linux/Windows with an Arabic/English inline two-column UI.
 
-## Features
-- User dashboard
-- Wallet system with ledger
-- Manual deposit and withdrawal approval flow
-- Lottery system
-- Game engine (dice, coin, wheel)
-- Gift code support
-- Referral system
-- Language switcher (Arabic/English)
-- Support section
-- Admin dashboard and permission system
-- Security checks and anti-spam protections
-- SQLite with WAL mode and transactions
+## Current implemented flows
+- Central inline navigation with home/back controls.
+- SQLite WAL database with foreign keys, constraints and migrations for the current schema.
+- Atomic wallet ledger operations and idempotent request decisions.
+- Manual deposit requests and held withdrawals; admin approval/rejection commands.
+- Lottery tickets selected by ticket ID, not distinct users.
+- Dice, coin and server-time wheel cooldown.
+- Atomic, expiry-aware, per-user gift redemption.
+- Admin database backup and pending request listing.
 
-## Structure
+## Install
+```bash
+pkg update
+pkg install python git
+python -m pip install -r requirements.txt
+cp .env.example .env
+```
+Set `BOT_TOKEN` and the numeric Telegram IDs in `ADMIN_IDS`, then run:
+```bash
+python main.py
+```
+
+## Admin commands
 ```text
-LuckyStrike/
-├── main.py
-├── config.py
-├── requirements.txt
-├── .env.example
-├── README.md
-├── start.sh
-├── database/
-├── handlers/
-├── services/
-├── keyboards/
-├── utils/
-├── locales/
-├── data/
-├── backups/
-├── logs/
-└── .env
+/admin or /panel
+/stats
+/pending
+/approve REQUEST_ID
+/reject REQUEST_ID
+/backup
 ```
 
-## Setup
-1. Install Python 3.11+
-2. On Android/Termux:
-   ```bash
-   pkg update
-   pkg install python git
-   git clone https://github.com/Abo7na/LuckyStrike.git
-   cd LuckyStrike
-   cp .env.example .env
-   ```
-3. Set your Telegram bot token in `.env`.
-4. Start:
-   ```bash
-   bash start.sh
-   ```
+## Manual payment model
+No payment API is required. An administrator must verify a payment reference before approving a deposit. A withdrawal is held atomically and returned through a ledger refund if rejected.
 
-## .env
-```env
-BOT_TOKEN=your_telegram_token_here
-ADMIN_IDS=123456789
-DATABASE_PATH=data/luckystrike.db
-TEST_MODE=false
-```
-
-## Notes
-- Payment APIs are intentionally not included because no payment provider credentials were provided.
-- Deposit and withdrawal flows are handled manually through admin approval.
-- The project is built to be modular and extendable.
+## Safety
+Use `TEST_MODE=true` while testing. Never commit `.env`, tokens, payment credentials, or production database files. This project must be tested with a separate Telegram bot before handling real balances.

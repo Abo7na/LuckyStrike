@@ -11,26 +11,16 @@ def register_handlers(bot):
         stats = get_dashboard_stats()
         bot.send_message(message.chat.id, "📊 <b>Statistics</b>\n\n" + "\n".join(f"• {key}: <code>{value}</code>" for key, value in stats.items()))
 
-    @bot.message_handler(commands=["approve"])
-    def approve_cmd(message):
+    @bot.message_handler(commands=["approve", "reject"])
+    def decide_cmd(message):
         if message.from_user.id not in ADMIN_IDS:
             return
         parts = message.text.split(maxsplit=1)
         if len(parts) != 2:
-            bot.send_message(message.chat.id, "Usage: /approve REQUEST_ID")
+            bot.send_message(message.chat.id, f"Usage: /{message.text.split()[0][1:]} REQUEST_ID")
             return
-        result = decide_request(parts[1].strip(), message.from_user.id, True, "Approved by admin")
-        log_admin_action(message.from_user.id, "approve_wallet_request", details=parts[1].strip())
-        bot.send_message(message.chat.id, "✅ Request approved" if result.get("ok") else f"❌ {result.get('message')}")
-
-    @bot.message_handler(commands=["reject"])
-    def reject_cmd(message):
-        if message.from_user.id not in ADMIN_IDS:
-            return
-        parts = message.text.split(maxsplit=1)
-        if len(parts) != 2:
-            bot.send_message(message.chat.id, "Usage: /reject REQUEST_ID")
-            return
-        result = decide_request(parts[1].strip(), message.from_user.id, False, "Rejected by admin")
-        log_admin_action(message.from_user.id, "reject_wallet_request", details=parts[1].strip())
-        bot.send_message(message.chat.id, "✅ Request rejected/refunded when applicable" if result.get("ok") else f"❌ {result.get('message')}")
+        approve = message.text.split()[0].lower() == "/approve"
+        request_id = parts[1].strip()
+        result = decide_request(request_id, message.from_user.id, approve, "Approved by admin" if approve else "Rejected by admin")
+        log_admin_action(message.from_user.id, "approve_wallet_request" if approve else "reject_wallet_request", details=request_id)
+        bot.send_message(message.chat.id, ("✅ Request approved" if approve else "✅ Request rejected/refunded") if result.get("ok") else f"❌ {result.get('message')}")
