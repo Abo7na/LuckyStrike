@@ -8,4 +8,5 @@ def register_handlers(bot):
     def games_cmd(message):
         user = get_user(message.from_user.id)
         if user:
-            bot.send_message(message.chat.id, get_text(user.get("language", "ar"), "games"), reply_markup=games_keyboard(user.get("language", "ar")))
+            lang = user.get("language", "ar")
+            bot.send_message(message.chat.id, get_text(lang, "games"), reply_markup=games_keyboard(lang))

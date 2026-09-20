@@ -1,7 +1,7 @@
 from database.db import get_user
 from keyboards.user import section_keyboard
-from utils.helpers import get_text
 from telebot import types
+from utils.helpers import get_text
 
 
 def register_handlers(bot):
@@ -11,4 +11,5 @@ def register_handlers(bot):
         if user:
             lang = user.get("language", "ar")
             label = "🎡 Spin now" if lang == "en" else "🎡 أدر العجلة الآن"
-            bot.send_message(message.chat.id, get_text(lang, "wheel"), reply_markup=section_keyboard(lang, [types.InlineKeyboardButton(label, callback_data="wheel_spin")]))
+            markup = section_keyboard(lang, [types.InlineKeyboardButton(label, callback_data="wheel_spin")])
+            bot.send_message(message.chat.id, get_text(lang, "wheel"), reply_markup=markup)

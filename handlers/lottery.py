@@ -16,4 +16,4 @@ def register_handlers(bot):
         if not round_data:
             bot.send_message(message.chat.id, get_text(lang, "lottery_no_active"))
             return
-        bot.send_message(message.chat.id, f"🎟️ <b>{round_data['title']}</b>\n\nTicket: <code>{round_data['ticket_price']:.2f}</code>\nTickets sold: <code>{round_data['tickets_sold'] if 'tickets_sold' in round_data else 0}</code>", reply_markup=lottery_keyboard(lang))
+        bot.send_message(message.chat.id, f"🎟️ <b>{round_data['title']}</b>\n\nTicket price: <code>{float(round_data['ticket_price']):.2f}</code>\nTickets sold: <code>{round_data['tickets_sold']}</code>", reply_markup=lottery_keyboard(lang))

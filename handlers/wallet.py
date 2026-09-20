@@ -9,4 +9,5 @@ def register_handlers(bot):
         user = get_user(message.from_user.id)
         if user:
             lang = user.get("language", "ar")
-            bot.send_message(message.chat.id, f"💰 <b>{get_text(lang, 'wallet')}</b>\n\nBalance: <code>{user['balance']:.2f}</code>", reply_markup=wallet_keyboard(lang))
+            text = f"💰 <b>{get_text(lang, 'wallet')}</b>\n\nBalance: <code>{float(user['balance']):.2f}</code>"
+            bot.send_message(message.chat.id, text, reply_markup=wallet_keyboard(lang))
