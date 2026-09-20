@@ -76,5 +76,16 @@ def language_keyboard():
     return section_keyboard("ar", [_button("🇸🇾 العربية", "set_lang_ar"), _button("🇬🇧 English", "set_lang_en")])
 
 
+def profile_keyboard(lang="ar"):
+    language_text = "🌐 Language" if lang == "en" else "🌐 اللغة"
+    return section_keyboard(lang, [_button(language_text, "nav_language")])
+
+
 def admin_keyboard():
-    return section_keyboard("ar", [_button("📊 الإحصائيات", "admin_stats"), _button("👥 المستخدمون", "admin_users")], [_button("💰 المحفظة", "admin_wallet"), _button("🎟️ اليانصيب", "admin_lottery")], [_button("⚙️ الإعدادات", "admin_settings"), _button("🛡️ الأمان", "admin_security")], [_button("📥 الطلبات", "admin_pending"), _button("💾 نسخة احتياطية", "admin_backup")])
+    return section_keyboard(
+        "ar",
+        [_button("📊 الإحصائيات", "admin_stats"), _button("👥 المستخدمون", "admin_users")],
+        [_button("💰 المحفظة", "admin_wallet"), _button("🎟️ اليانصيب", "admin_lottery")],
+        [_button("⚙️ الإعدادات", "admin_settings"), _button("🛡️ الأمان", "admin_security")],
+        [_button("📥 الطلبات", "admin_pending"), _button("💾 نسخة احتياطية", "admin_backup")],
+    )
